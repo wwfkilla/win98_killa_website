@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DOOM</title>
+  <link rel="stylesheet" href="/js-dos/js-dos.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    /* js-dos v7 builds its own <canvas> inside this container, so it must be a <div>. */
+    #dos { position: absolute; inset: 0; background: #000; }
+    /* Hide js-dos' own sidebar (it is the first child of #dos). */
+    #dos > div:first-child { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="dos"></div>
+  <script src="/js-dos/js-dos.js"></script>
+  <script>
+    // IMPORTANT: js-dos shows its first-run tips popup (and PAUSES the game while it is open)
+    // unless these settings are the string "false". The popup is hidden by the CSS above, so
+    // leaving them on would leave the game silently paused until the tab was switched.
+    try {
+      localStorage.setItem('emulators.ui.ui.tipsV2', 'false');
+      localStorage.setItem('emulators.ui.ui.autolockTipsV2', 'false');
+    } catch (e) {}
+
+    window.emulators = window.emulators || {};
+    window.emulators.pathPrefix = '/js-dos/';
+
+    window.Dos(document.getElementById('dos'))
+      .run('/doom.jsdos')
+      .then((ci) => { window.ci = ci; }) // handle used by the on-screen touch controls
+      .catch((e) => {
+        document.body.innerHTML = '<pre style="color:#fff;padding:12px">' + (e.message || e) + '</pre>';
+      });
+
+    // Touch controls live in the parent page (Doom.jsx) and send key presses in through postMessage.
+    // Codes are js-dos key codes (GLFW): arrows 262-265, Ctrl 341, Alt 342, Space 32, Enter 257, Esc 256, Y 89.
+    window.addEventListener('message', (e) => {
+      if (e.origin !== location.origin) return;
+      const d = e.data;
+      if (!d) return;
+      if (d.type === 'doom-key' && window.ci) {
+        try { window.ci.sendKeyEvent(d.code, !!d.down); } catch (err) {}
+      } else if (d.type === 'doom-resume') {
+        // best effort: wake the audio context after a touch in the parent page
+        try { document.dispatchEvent(new MouseEvent('click')); } catch (err) {}
+      }
+    });
+  </script>
+</body>
+</html>
